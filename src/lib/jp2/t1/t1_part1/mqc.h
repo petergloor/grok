@@ -59,30 +59,25 @@
 #include <t1_common.h>
 namespace grk {
 
-struct mqc_state;
-struct mqcoder;
-
-struct mqc_state {
+typedef struct mqc_state {
     /** the probability of the Least Probable Symbol (0.75->0x8000, 1.5->0xffff) */
-    uint32_t qeval;
-    /** the Most Probable Symbol (0 or 1) */
-    uint32_t mps;
+	uint16_t qeval;
     /** next state if the next encoded symbol is the MPS */
-    const mqc_state *nmps;
+    uint8_t nmps;
     /** next state if the next encoded symbol is the LPS */
-    const mqc_state *nlps;
-} ;
+    uint8_t nlps;
+} mqc_state_t;
 
 #define MQC_NUMCTXS 19
-struct mqcoder {
+typedef struct mqc {
     /** temporary buffer where bits are coded or decoded */
     uint32_t c;
     /** only used by MQ decoder */
-    uint32_t a;
+    uint16_t a;
     /** number of bits already read or free to write */
-    uint32_t ct;
+    uint8_t ct;
     /* only used by decoder, to count the number of times a terminating 0xFF >0x8F marker is read */
-    uint32_t end_of_byte_stream_counter;
+    uint16_t end_of_byte_stream_counter;
     /** pointer to the current position in the buffer */
     uint8_t *bp;
     /** pointer to the start of the buffer */
@@ -90,38 +85,30 @@ struct mqcoder {
     /** pointer to the end of the buffer */
     uint8_t *end;
     /** Array of contexts */
-    const mqc_state *ctxs[MQC_NUMCTXS];
+    uint8_t ctxs[MQC_NUMCTXS];
     /** Active context */
-    const mqc_state **curctx;
+    uint8_t *curctx;
     /* lut_ctxno_zc shifted by (1 << 9) * bandno */
     const uint8_t* lut_ctxno_zc_orient;
     /** Original value of the 2 bytes at end[0] and end[1] */
     uint8_t backup[GRK_FAKE_MARKER_BYTES];
-} ;
-
-const uint32_t A_MIN = 0x8000;
+} mqc_t;
 
 #include "mqc_inl.h"
-#include "mqc_dec_inl.h"
-#include "mqc_enc_inl.h"
-
-uint32_t mqc_numbytes_enc(mqcoder *mqc);
-void mqc_resetstates(mqcoder *mqc);
-
-/* ENCODE */
-
-void mqc_init_enc(mqcoder *mqc, uint8_t *bp);
-void mqc_encode(mqcoder *mqc, uint32_t d);
-void mqc_flush_enc(mqcoder *mqc);
-void mqc_bypass_init_enc(mqcoder *mqc);
-uint32_t mqc_bypass_get_extra_bytes_enc(mqcoder *mqc, bool erterm);
-void mqc_bypass_enc(mqcoder *mqc, uint32_t d);
-void mqc_bypass_flush_enc(mqcoder *mqc, bool erterm);
-void mqc_restart_init_enc(mqcoder *mqc);
-void mqc_erterm_enc(mqcoder *mqc);
-void mqc_segmark_enc(mqcoder *mqc);
-
-/* DECODE */
+uint32_t mqc_numbytes(mqc_t *mqc);
+void mqc_resetstates(mqc_t *mqc);
+void mqc_init_enc(mqc_t *mqc, uint8_t *bp);
+#define mqc_setcurctx(mqc, ctxno)   (mqc)->curctx = &(mqc)->ctxs[(uint32_t)(ctxno)]
+void mqc_encode(mqc_t *mqc, uint32_t d);
+void mqc_flush(mqc_t *mqc);
+void mqc_bypass_init_enc(mqc_t *mqc);
+uint32_t mqc_bypass_get_extra_bytes(mqc_t *mqc, bool erterm);
+void mqc_bypass_enc(mqc_t *mqc, uint32_t d);
+void mqc_bypass_flush_enc(mqc_t *mqc, bool erterm);
+void mqc_reset_enc(mqc_t *mqc);
+void mqc_restart_init_enc(mqc_t *mqc);
+void mqc_erterm_enc(mqc_t *mqc);
+void mqc_segmark_enc(mqc_t *mqc);
 
 /**
 Initialize the decoder for MQ decoding.
@@ -141,7 +128,7 @@ passes, so as to restore the bytes temporarily overwritten.
                             This is to indicate your consent that bp must be
                             large enough.
 */
-void mqc_init_dec(mqcoder *mqc, uint8_t *bp, uint32_t len,
+void mqc_init_dec(mqc_t *mqc, uint8_t *bp, uint32_t len,
                       uint32_t extra_writable_bytes);
 
 /**
@@ -162,7 +149,7 @@ passes, so as to restore the bytes temporarily overwritten.
                             This is to indicate your consent that bp must be
                             large enough.
 */
-void mqc_raw_init_dec(mqcoder *mqc, uint8_t *bp, uint32_t len,
+void mqc_raw_init_dec(mqc_t *mqc, uint8_t *bp, uint32_t len,
                           uint32_t extra_writable_bytes);
 
 
@@ -174,6 +161,6 @@ mqc_raw_init_dec()
 
 @param mqc MQC handle
 */
-void opq_mqc_finish_dec(mqcoder *mqc);
+void opq_mqc_finish_dec(mqc_t *mqc);
 
 }

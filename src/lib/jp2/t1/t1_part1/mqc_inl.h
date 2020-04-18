@@ -56,17 +56,166 @@
 
 #pragma once
 
-#define DOWNLOAD_MQC_VARIABLES(mqc, curctx) \
-         const mqc_state **curctx = mqc->curctx; \
-         uint32_t c = mqc->c; \
-         uint32_t a = mqc->a; \
-         uint32_t ct = mqc->ct
 
-#define UPLOAD_MQC_VARIABLES(mqc, curctx) \
+
+typedef struct mqc_state mqc_state_t;
+extern const mqc_state_t mqc_states[47 * 2];
+
+
+/* For internal use of mqc_decode_macro() */
+#define mqc_mpsexchange_macro(d, curctx, a) \
+{ \
+	auto state = (mqc_states + *curctx); \
+    if (a < state->qeval) { \
+        d = !(*curctx & 1); \
+        *curctx = state->nlps; \
+    } else { \
+        d = *curctx & 1; \
+        *curctx = state->nmps; \
+    } \
+}
+
+/* For internal use of mqc_decode_macro() */
+#define mqc_lpsexchange_macro(d, curctx, a) \
+{ \
+	auto state = (mqc_states + *curctx); \
+    if (a < state->qeval) { \
+        a = state->qeval; \
+        d = *curctx & 1; \
+        *curctx = state->nmps; \
+    } else { \
+        a = state->qeval; \
+        d = !(*curctx & 1); \
+        *curctx = state->nlps; \
+    } \
+}
+
+
+/**
+Decode a symbol using raw-decoder. Cfr p.506 TAUBMAN
+@param mqc MQC handle
+@return Returns the decoded symbol (0 or 1)
+*/
+static INLINE uint32_t mqc_raw_decode(mqc_t *mqc)
+{
+    uint32_t d;
+    if (mqc->ct == 0) {
+        /* Given mqc_raw_init_dec() we know that at some point we will */
+        /* have a 0xFF 0xFF artificial marker */
+        if (mqc->c == 0xff) {
+            if (*mqc->bp  > 0x8f) {
+                mqc->c = 0xff;
+                mqc->ct = 8;
+            } else {
+                mqc->c = *mqc->bp;
+                mqc->bp ++;
+                mqc->ct = 7;
+            }
+        } else {
+            mqc->c = *mqc->bp;
+            mqc->bp ++;
+            mqc->ct = 8;
+        }
+    }
+    mqc->ct--;
+    d = (mqc->c >> mqc->ct) & 0x01U;
+
+    return d;
+}
+
+
+#define mqc_bytein_macro(mqc, c, ct) \
+{ \
+        uint32_t l_c;  \
+        /* Given mqc_init_dec() we know that at some point we will */ \
+        /* have a 0xFF 0xFF artificial marker */ \
+        l_c = *(mqc->bp + 1); \
+        if (*mqc->bp == 0xff) { \
+            if (l_c > 0x8f) { \
+                c += 0xff00; \
+                ct = 8; \
+                mqc->end_of_byte_stream_counter ++; \
+            } else { \
+                mqc->bp++; \
+                c += l_c << 9; \
+                ct = 7; \
+            } \
+        } else { \
+            mqc->bp++; \
+            c += l_c << 8; \
+            ct = 8; \
+        } \
+}
+
+/* For internal use of mqc_decode_macro() */
+#define mqc_renormd_macro(mqc, a, c, ct) \
+{ \
+    do { \
+        if (ct == 0) { \
+            mqc_bytein_macro(mqc, c, ct); \
+        } \
+        a = (uint16_t)(a << 1); \
+        c <<= 1; \
+        ct--; \
+    } while (a < 0x8000); \
+}
+
+#define mqc_decode_macro(d, mqc, curctx, a, c, ct) \
+{ \
+    /* Implements ISO 15444-1 C.3.2 Decoding a decision (DECODE) */ \
+    /* Note: alternate "J.2 - Decoding an MPS or an LPS in the */ \
+    /* software-conventions decoder" has been tried, but does not bring any */ \
+    /* improvement. See https://github.com/uclouvain/openjpeg/issues/921 */ \
+	auto state = (mqc_states + *curctx); \
+    a = (uint16_t)(a - state->qeval);  \
+    if ((c >> 16) < state->qeval) {  \
+        mqc_lpsexchange_macro(d, curctx, a);  \
+        mqc_renormd_macro(mqc, a, c, ct);  \
+    } else {  \
+        c -= state->qeval << 16;  \
+        if ((a & 0x8000) == 0) { \
+            mqc_mpsexchange_macro(d, curctx, a); \
+            mqc_renormd_macro(mqc, a, c, ct); \
+        } else { \
+            d = (*curctx)&1; \
+        } \
+    } \
+}
+
+#define DOWNLOAD_MQC_VARIABLES(mqc, curctx, c, a, ct) \
+         uint8_t *curctx = mqc->curctx; \
+         uint32_t c = mqc->c; \
+        register uint16_t a = mqc->a; \
+        register uint8_t ct = mqc->ct
+
+#define UPLOAD_MQC_VARIABLES(mqc, curctx, c, a, ct) \
         mqc->curctx = curctx; \
         mqc->c = c; \
         mqc->a = a; \
         mqc->ct = ct;
 
-#define mqc_setcurctx(mqc, ctxno)   (mqc)->curctx = (mqc)->ctxs + (uint32_t)(ctxno)
+/**
+Input a byte
+@param mqc MQC handle
+*/
+static INLINE void mqc_bytein(mqc_t *const mqc)
+{
+    mqc_bytein_macro(mqc, mqc->c, mqc->ct);
+}
+
+/**
+Renormalize mqc->a and mqc->c while decoding
+@param mqc MQC handle
+*/
+#define mqc_renormd(mqc) \
+    mqc_renormd_macro(mqc, mqc->a, mqc->c, mqc->ct)
+
+/**
+Decode a symbol
+@param d uint32_t value where to store the decoded symbol
+@param mqc MQC handle
+@return Returns the decoded symbol (0 or 1) in d
+*/
+#define mqc_decode(d, mqc) \
+    mqc_decode_macro(d, mqc, mqc->curctx, mqc->a, mqc->c, mqc->ct)
 

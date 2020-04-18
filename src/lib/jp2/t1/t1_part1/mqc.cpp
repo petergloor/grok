@@ -60,112 +60,112 @@
 
 namespace grk {
 
-static void mqc_byteout_enc(mqcoder *mqc);
-static void mqc_renorm_enc(mqcoder *mqc);
-static void mqc_codemps_enc(mqcoder *mqc);
-static void mqc_codelps_enc(mqcoder *mqc);
-static void mqc_setbits_enc(mqcoder *mqc);
-
-static const mqc_state mqc_states[47 * 2] = {
-    {0x5601, 0, &mqc_states[2], &mqc_states[3]},
-    {0x5601, 1, &mqc_states[3], &mqc_states[2]},
-    {0x3401, 0, &mqc_states[4], &mqc_states[12]},
-    {0x3401, 1, &mqc_states[5], &mqc_states[13]},
-    {0x1801, 0, &mqc_states[6], &mqc_states[18]},
-    {0x1801, 1, &mqc_states[7], &mqc_states[19]},
-    {0x0ac1, 0, &mqc_states[8], &mqc_states[24]},
-    {0x0ac1, 1, &mqc_states[9], &mqc_states[25]},
-    {0x0521, 0, &mqc_states[10], &mqc_states[58]},
-    {0x0521, 1, &mqc_states[11], &mqc_states[59]},
-    {0x0221, 0, &mqc_states[76], &mqc_states[66]},
-    {0x0221, 1, &mqc_states[77], &mqc_states[67]},
-    {0x5601, 0, &mqc_states[14], &mqc_states[13]},
-    {0x5601, 1, &mqc_states[15], &mqc_states[12]},
-    {0x5401, 0, &mqc_states[16], &mqc_states[28]},
-    {0x5401, 1, &mqc_states[17], &mqc_states[29]},
-    {0x4801, 0, &mqc_states[18], &mqc_states[28]},
-    {0x4801, 1, &mqc_states[19], &mqc_states[29]},
-    {0x3801, 0, &mqc_states[20], &mqc_states[28]},
-    {0x3801, 1, &mqc_states[21], &mqc_states[29]},
-    {0x3001, 0, &mqc_states[22], &mqc_states[34]},
-    {0x3001, 1, &mqc_states[23], &mqc_states[35]},
-    {0x2401, 0, &mqc_states[24], &mqc_states[36]},
-    {0x2401, 1, &mqc_states[25], &mqc_states[37]},
-    {0x1c01, 0, &mqc_states[26], &mqc_states[40]},
-    {0x1c01, 1, &mqc_states[27], &mqc_states[41]},
-    {0x1601, 0, &mqc_states[58], &mqc_states[42]},
-    {0x1601, 1, &mqc_states[59], &mqc_states[43]},
-    {0x5601, 0, &mqc_states[30], &mqc_states[29]},
-    {0x5601, 1, &mqc_states[31], &mqc_states[28]},
-    {0x5401, 0, &mqc_states[32], &mqc_states[28]},
-    {0x5401, 1, &mqc_states[33], &mqc_states[29]},
-    {0x5101, 0, &mqc_states[34], &mqc_states[30]},
-    {0x5101, 1, &mqc_states[35], &mqc_states[31]},
-    {0x4801, 0, &mqc_states[36], &mqc_states[32]},
-    {0x4801, 1, &mqc_states[37], &mqc_states[33]},
-    {0x3801, 0, &mqc_states[38], &mqc_states[34]},
-    {0x3801, 1, &mqc_states[39], &mqc_states[35]},
-    {0x3401, 0, &mqc_states[40], &mqc_states[36]},
-    {0x3401, 1, &mqc_states[41], &mqc_states[37]},
-    {0x3001, 0, &mqc_states[42], &mqc_states[38]},
-    {0x3001, 1, &mqc_states[43], &mqc_states[39]},
-    {0x2801, 0, &mqc_states[44], &mqc_states[38]},
-    {0x2801, 1, &mqc_states[45], &mqc_states[39]},
-    {0x2401, 0, &mqc_states[46], &mqc_states[40]},
-    {0x2401, 1, &mqc_states[47], &mqc_states[41]},
-    {0x2201, 0, &mqc_states[48], &mqc_states[42]},
-    {0x2201, 1, &mqc_states[49], &mqc_states[43]},
-    {0x1c01, 0, &mqc_states[50], &mqc_states[44]},
-    {0x1c01, 1, &mqc_states[51], &mqc_states[45]},
-    {0x1801, 0, &mqc_states[52], &mqc_states[46]},
-    {0x1801, 1, &mqc_states[53], &mqc_states[47]},
-    {0x1601, 0, &mqc_states[54], &mqc_states[48]},
-    {0x1601, 1, &mqc_states[55], &mqc_states[49]},
-    {0x1401, 0, &mqc_states[56], &mqc_states[50]},
-    {0x1401, 1, &mqc_states[57], &mqc_states[51]},
-    {0x1201, 0, &mqc_states[58], &mqc_states[52]},
-    {0x1201, 1, &mqc_states[59], &mqc_states[53]},
-    {0x1101, 0, &mqc_states[60], &mqc_states[54]},
-    {0x1101, 1, &mqc_states[61], &mqc_states[55]},
-    {0x0ac1, 0, &mqc_states[62], &mqc_states[56]},
-    {0x0ac1, 1, &mqc_states[63], &mqc_states[57]},
-    {0x09c1, 0, &mqc_states[64], &mqc_states[58]},
-    {0x09c1, 1, &mqc_states[65], &mqc_states[59]},
-    {0x08a1, 0, &mqc_states[66], &mqc_states[60]},
-    {0x08a1, 1, &mqc_states[67], &mqc_states[61]},
-    {0x0521, 0, &mqc_states[68], &mqc_states[62]},
-    {0x0521, 1, &mqc_states[69], &mqc_states[63]},
-    {0x0441, 0, &mqc_states[70], &mqc_states[64]},
-    {0x0441, 1, &mqc_states[71], &mqc_states[65]},
-    {0x02a1, 0, &mqc_states[72], &mqc_states[66]},
-    {0x02a1, 1, &mqc_states[73], &mqc_states[67]},
-    {0x0221, 0, &mqc_states[74], &mqc_states[68]},
-    {0x0221, 1, &mqc_states[75], &mqc_states[69]},
-    {0x0141, 0, &mqc_states[76], &mqc_states[70]},
-    {0x0141, 1, &mqc_states[77], &mqc_states[71]},
-    {0x0111, 0, &mqc_states[78], &mqc_states[72]},
-    {0x0111, 1, &mqc_states[79], &mqc_states[73]},
-    {0x0085, 0, &mqc_states[80], &mqc_states[74]},
-    {0x0085, 1, &mqc_states[81], &mqc_states[75]},
-    {0x0049, 0, &mqc_states[82], &mqc_states[76]},
-    {0x0049, 1, &mqc_states[83], &mqc_states[77]},
-    {0x0025, 0, &mqc_states[84], &mqc_states[78]},
-    {0x0025, 1, &mqc_states[85], &mqc_states[79]},
-    {0x0015, 0, &mqc_states[86], &mqc_states[80]},
-    {0x0015, 1, &mqc_states[87], &mqc_states[81]},
-    {0x0009, 0, &mqc_states[88], &mqc_states[82]},
-    {0x0009, 1, &mqc_states[89], &mqc_states[83]},
-    {0x0005, 0, &mqc_states[90], &mqc_states[84]},
-    {0x0005, 1, &mqc_states[91], &mqc_states[85]},
-    {0x0001, 0, &mqc_states[90], &mqc_states[86]},
-    {0x0001, 1, &mqc_states[91], &mqc_states[87]},
-    {0x5601, 0, &mqc_states[92], &mqc_states[92]},
-    {0x5601, 1, &mqc_states[93], &mqc_states[93]},
+static void mqc_byteout(mqc_t *mqc);
+static void mqc_renorme(mqc_t *mqc);
+static void mqc_codemps(mqc_t *mqc);
+static void mqc_codelps(mqc_t *mqc);
+static void mqc_setbits(mqc_t *mqc);
+static void mqc_setstate(mqc_t *mqc,
+		                 uint32_t ctxno, uint32_t msb,
+                         int32_t prob);
+const mqc_state_t mqc_states[47 * 2] = {
+    {0x5601, 2, 3},
+    {0x5601, 3, 2},
+    {0x3401, 4, 12},
+    {0x3401, 5, 13},
+    {0x1801, 6, 18},
+    {0x1801, 7, 19},
+    {0x0ac1, 8, 24},
+    {0x0ac1, 9, 25},
+    {0x0521, 10, 58},
+    {0x0521, 11, 59},
+    {0x0221, 76, 66},
+    {0x0221, 77, 67},
+    {0x5601, 14, 13},
+    {0x5601, 15, 12},
+    {0x5401, 16, 28},
+    {0x5401, 17, 29},
+    {0x4801, 18, 28},
+    {0x4801, 19, 29},
+    {0x3801, 20, 28},
+    {0x3801, 21, 29},
+    {0x3001, 22, 34},
+    {0x3001, 23, 35},
+    {0x2401, 24, 36},
+    {0x2401, 25, 37},
+    {0x1c01, 26, 40},
+    {0x1c01, 27, 41},
+    {0x1601, 58, 42},
+    {0x1601, 59, 43},
+    {0x5601, 30, 29},
+    {0x5601, 31, 28},
+    {0x5401, 32, 28},
+    {0x5401, 33, 29},
+    {0x5101, 34, 30},
+    {0x5101, 35, 31},
+    {0x4801, 36, 32},
+    {0x4801, 37, 33},
+    {0x3801, 38, 34},
+    {0x3801, 39, 35},
+    {0x3401, 40, 36},
+    {0x3401, 41, 37},
+    {0x3001, 42, 38},
+    {0x3001, 43, 39},
+    {0x2801, 44, 38},
+    {0x2801, 45, 39},
+    {0x2401, 46, 40},
+    {0x2401, 47, 41},
+    {0x2201, 48, 42},
+    {0x2201, 49, 43},
+    {0x1c01, 50, 44},
+    {0x1c01, 51, 45},
+    {0x1801, 52, 46},
+    {0x1801, 53, 47},
+    {0x1601, 54, 48},
+    {0x1601, 55, 49},
+    {0x1401, 56, 50},
+    {0x1401, 57, 51},
+    {0x1201, 58, 52},
+    {0x1201, 59, 53},
+    {0x1101, 60, 54},
+    {0x1101, 61, 55},
+    {0x0ac1, 62, 56},
+    {0x0ac1, 63, 57},
+    {0x09c1, 64, 58},
+    {0x09c1, 65, 59},
+    {0x08a1, 66, 60},
+    {0x08a1, 67, 61},
+    {0x0521, 68, 62},
+    {0x0521, 69, 63},
+    {0x0441, 70, 64},
+    {0x0441, 71, 65},
+    {0x02a1, 72, 66},
+    {0x02a1, 73, 67},
+    {0x0221, 74, 68},
+    {0x0221, 75, 69},
+    {0x0141, 76, 70},
+    {0x0141, 77, 71},
+    {0x0111, 78, 72},
+    {0x0111, 79, 73},
+    {0x0085, 80, 74},
+    {0x0085, 81, 75},
+    {0x0049, 82, 76},
+    {0x0049, 83, 77},
+    {0x0025, 84, 78},
+    {0x0025, 85, 79},
+    {0x0015, 86, 80},
+    {0x0015, 87, 81},
+    {0x0009, 88, 82},
+    {0x0009, 89, 83},
+    {0x0005, 90, 84},
+    {0x0005, 91, 85},
+    {0x0001, 90, 86},
+    {0x0001, 91, 87},
+    {0x5601, 92, 92},
+    {0x5601, 93, 93},
 };
-
-/* ENCODE */
-
-static void mqc_byteout_enc(mqcoder *mqc){
+static void mqc_byteout(mqc_t *mqc)
+{
     /* bp is initialized to start - 1 in mqc_init_enc() */
     /* but this is safe, see tcd_code_block_enc_allocate_data() */
     assert(mqc->bp >= mqc->start - 1);
@@ -198,51 +198,67 @@ static void mqc_byteout_enc(mqcoder *mqc){
     }
 }
 
-static void mqc_renorm_enc(mqcoder *mqc){
+static void mqc_renorme(mqc_t *mqc)
+{
     do {
         mqc->a <<= 1;
         mqc->c <<= 1;
         mqc->ct--;
-        if (mqc->ct == 0)
-            mqc_byteout_enc(mqc);
+        if (mqc->ct == 0) {
+            mqc_byteout(mqc);
+        }
     } while ((mqc->a & 0x8000) == 0);
 }
 
-static void mqc_codemps_enc(mqcoder *mqc){
-    mqc->a -= (*mqc->curctx)->qeval;
+static void mqc_codemps(mqc_t *mqc)
+{
+	auto state = (mqc_states + (*mqc->curctx));
+    mqc->a -=  state->qeval;
     if ((mqc->a & 0x8000) == 0) {
-        if (mqc->a < (*mqc->curctx)->qeval)
-            mqc->a = (*mqc->curctx)->qeval;
-        else
-            mqc->c += (*mqc->curctx)->qeval;
-        *mqc->curctx = (*mqc->curctx)->nmps;
-        mqc_renorm_enc(mqc);
+        if (mqc->a < state->qeval) {
+            mqc->a = state->qeval;
+        } else {
+            mqc->c += state->qeval;
+        }
+        *mqc->curctx = state->nmps;
+        mqc_renorme(mqc);
     } else {
-        mqc->c += (*mqc->curctx)->qeval;
+        mqc->c += state->qeval;
     }
 }
 
-static void mqc_codelps_enc(mqcoder *mqc){
-    mqc->a -= (*mqc->curctx)->qeval;
-    if (mqc->a < (*mqc->curctx)->qeval)
-        mqc->c += (*mqc->curctx)->qeval;
-    else
-        mqc->a = (*mqc->curctx)->qeval;
-    *mqc->curctx = (*mqc->curctx)->nlps;
-    mqc_renorm_enc(mqc);
+static void mqc_codelps(mqc_t *mqc)
+{
+	auto state = (mqc_states + (*mqc->curctx));
+    mqc->a -= state->qeval;
+    if (mqc->a < state->qeval) {
+        mqc->c += state->qeval;
+    } else {
+        mqc->a = state->qeval;
+    }
+    *mqc->curctx = state->nlps;
+    mqc_renorme(mqc);
 }
 
-static void mqc_setbits_enc(mqcoder *mqc){
+static void mqc_setbits(mqc_t *mqc)
+{
     uint32_t tempc = mqc->c + mqc->a;
     mqc->c |= 0xffff;
-    if (mqc->c >= tempc)
+    if (mqc->c >= tempc) {
         mqc->c -= 0x8000;
+    }
 }
-uint32_t mqc_numbytes_enc(mqcoder *mqc){
-    return (uint32_t)(mqc->bp - mqc->start);
+uint32_t mqc_numbytes(mqc_t *mqc)
+{
+    const ptrdiff_t diff = mqc->bp - mqc->start;
+#if 0
+    assert(diff <= 0xffffffff && diff >= 0);   /* UINT32_MAX */
+#endif
+    return (uint32_t)diff;
 }
 
-void mqc_init_enc(mqcoder *mqc, uint8_t *bp){
+void mqc_init_enc(mqc_t *mqc, uint8_t *bp)
+{
     /* To avoid the curctx pointer to be dangling, but not strictly */
     /* required as the current context is always set before encoding */
     mqc_setcurctx(mqc, 0);
@@ -264,31 +280,36 @@ void mqc_init_enc(mqcoder *mqc, uint8_t *bp){
     mqc->end_of_byte_stream_counter = 0;
 }
 
-void mqc_encode(mqcoder *mqc, uint32_t d){
-    if ((*mqc->curctx)->mps == d)
-        mqc_codemps_enc(mqc);
-    else
-        mqc_codelps_enc(mqc);
+void mqc_encode(mqc_t *mqc, uint32_t d)
+{
+    if ((*mqc->curctx & 1) == d) {
+        mqc_codemps(mqc);
+    } else {
+        mqc_codelps(mqc);
+    }
 }
 
-void mqc_flush_enc(mqcoder *mqc){
+void mqc_flush(mqc_t *mqc)
+{
     /* C.2.9 Termination of coding (FLUSH) */
     /* Figure C.11 – FLUSH procedure */
-    mqc_setbits_enc(mqc);
+    mqc_setbits(mqc);
     mqc->c <<= mqc->ct;
-    mqc_byteout_enc(mqc);
+    mqc_byteout(mqc);
     mqc->c <<= mqc->ct;
-    mqc_byteout_enc(mqc);
+    mqc_byteout(mqc);
 
-    /* Advance pointer if current byte != 0xff */
-    /* (it is forbidden that a coding pass ends with 0xff) */
-    if (*mqc->bp != 0xff)
+    /* It is forbidden that a coding pass ends with 0xff */
+    if (*mqc->bp != 0xff) {
+        /* Advance pointer so that mqc_numbytes() returns a valid value */
         mqc->bp++;
+    }
 }
 
-#define BYPASS_CT_INIT  0xDEADBEEF
+#define BYPASS_CT_INIT  0xF
 
-void mqc_bypass_init_enc(mqcoder *mqc){
+void mqc_bypass_init_enc(mqc_t *mqc)
+{
     /* This function is normally called after at least one mqc_flush() */
     /* which will have advance mqc->bp by at least 2 bytes beyond its */
     /* initial position */
@@ -305,28 +326,33 @@ void mqc_bypass_init_enc(mqcoder *mqc){
     assert(mqc->bp[-1] != 0xff);
 }
 
-void mqc_bypass_enc(mqcoder *mqc, uint32_t d){
-    if (mqc->ct == BYPASS_CT_INIT)
+void mqc_bypass_enc(mqc_t *mqc, uint32_t d)
+{
+    if (mqc->ct == BYPASS_CT_INIT) {
         mqc->ct = 8;
+    }
     mqc->ct--;
     mqc->c = mqc->c + (d << mqc->ct);
     if (mqc->ct == 0) {
         *mqc->bp = (uint8_t)mqc->c;
         mqc->ct = 8;
         /* If the previous byte was 0xff, make sure that the next msb is 0 */
-        if (*mqc->bp == 0xff)
+        if (*mqc->bp == 0xff) {
             mqc->ct = 7;
+        }
         mqc->bp++;
         mqc->c = 0;
     }
 }
 
-uint32_t mqc_bypass_get_extra_bytes_enc(mqcoder *mqc, bool erterm){
+uint32_t mqc_bypass_get_extra_bytes(mqc_t *mqc, bool erterm)
+{
     return (mqc->ct < 7 ||
             (mqc->ct == 7 && (erterm || mqc->bp[-1] != 0xff))) ? (1 + 1) : (0 + 1);
 }
 
-void mqc_bypass_flush_enc(mqcoder *mqc, bool erterm){
+void mqc_bypass_flush_enc(mqc_t *mqc, bool erterm)
+{
     /* Is there any bit remaining to be flushed ? */
     /* If the last output byte is 0xff, we can discard it, unless */
     /* erterm is required (I'm not completely sure why in erterm */
@@ -356,14 +382,21 @@ void mqc_bypass_flush_enc(mqcoder *mqc, bool erterm){
         /* Tiny optimization: discard terminating 0xff 0x7f since it is */
         /* interpreted as 0xff 0x7f [0xff 0xff] by the decoder, and given */
         /* the bit stuffing, in fact as 0xff 0xff [0xff ..] */
+        /* Happens once on opj_compress -i ../MAPA.tif -o MAPA.j2k  -M 1 */
         mqc->bp -= 2;
     }
 
     assert(mqc->bp[-1] != 0xff);
 }
 
-void mqc_restart_init_enc(mqcoder *mqc){
+void mqc_reset_enc(mqc_t *mqc)
+{
+    mqc_resetstates(mqc);
+}
+void mqc_restart_init_enc(mqc_t *mqc)
+{
     /* <Re-init part> */
+
     /* As specified in Figure C.10 - Initialization of the encoder */
     /* (C.2.8 Initialization of the encoder (INITENC)) */
     mqc->a = 0x8000;
@@ -375,27 +408,108 @@ void mqc_restart_init_enc(mqcoder *mqc){
     mqc->bp --;
     assert(mqc->bp >= mqc->start - 1);
     assert(*mqc->bp != 0xff);
-    if (*mqc->bp == 0xff)
+    if (*mqc->bp == 0xff) {
         mqc->ct = 13;
+    }
 }
 
-void mqc_erterm_enc(mqcoder *mqc){
+void mqc_erterm_enc(mqc_t *mqc)
+{
     int32_t k = (int32_t)(11 - mqc->ct + 1);
 
     while (k > 0) {
         mqc->c <<= mqc->ct;
         mqc->ct = 0;
-        mqc_byteout_enc(mqc);
+        mqc_byteout(mqc);
         k -= (int32_t)mqc->ct;
     }
-    if (*mqc->bp != 0xff)
-        mqc_byteout_enc(mqc);
+
+    if (*mqc->bp != 0xff) {
+        mqc_byteout(mqc);
+    }
 }
 
-void mqc_segmark_enc(mqcoder *mqc){
+void mqc_segmark_enc(mqc_t *mqc)
+{
+    uint32_t i;
     mqc_setcurctx(mqc, 18);
-    for (uint32_t i = 1; i < 5; i++)
+
+    for (i = 1; i < 5; i++) {
         mqc_encode(mqc, i % 2);
+    }
+}
+
+static void mqc_init_dec_common(mqc_t *mqc,
+                                    uint8_t *bp,
+                                    uint32_t len,
+                                    uint32_t extra_writable_bytes)
+{
+    (void)extra_writable_bytes;
+
+    assert(extra_writable_bytes >= GRK_FAKE_MARKER_BYTES);
+    mqc->start = bp;
+    mqc->end = bp + len;
+    /* Insert an artificial 0xFF 0xFF marker at end of the code block */
+    /* data so that the bytein routines stop on it. This saves us comparing */
+    /* the bp and end pointers */
+    /* But before inserting it, backup th bytes we will overwrite */
+    memcpy(mqc->backup, mqc->end, GRK_FAKE_MARKER_BYTES);
+    mqc->end[0] = 0xFF;
+    mqc->end[1] = 0xFF;
+    mqc->bp = bp;
+}
+void mqc_init_dec(mqc_t *mqc, uint8_t *bp, uint32_t len,
+                      uint32_t extra_writable_bytes)
+{
+    /* Implements ISO 15444-1 C.3.5 Initialization of the decoder (INITDEC) */
+    /* Note: alternate "J.1 - Initialization of the software-conventions */
+    /* decoder" has been tried, but does */
+    /* not bring any improvement. */
+    /* See https://github.com/uclouvain/openjpeg/issues/921 */
+    mqc_init_dec_common(mqc, bp, len, extra_writable_bytes);
+    mqc_setcurctx(mqc, 0);
+    mqc->end_of_byte_stream_counter = 0;
+    if (len == 0) {
+        mqc->c = 0xff << 16;
+    } else {
+        mqc->c = (uint32_t)(*mqc->bp << 16);
+    }
+
+    mqc_bytein(mqc);
+    mqc->c <<= 7;
+    mqc->ct -= 7;
+    mqc->a = 0x8000;
+}
+
+void mqc_raw_init_dec(mqc_t *mqc, uint8_t *bp, uint32_t len,
+                          uint32_t extra_writable_bytes)
+{
+    mqc_init_dec_common(mqc, bp, len, extra_writable_bytes);
+    mqc->c = 0;
+    mqc->ct = 0;
+}
+
+void opq_mqc_finish_dec(mqc_t *mqc)
+{
+    /* Restore the bytes overwritten by mqc_init_dec_common() */
+    memcpy(mqc->end, mqc->backup, GRK_FAKE_MARKER_BYTES);
+}
+
+void mqc_resetstates(mqc_t *mqc)
+{
+    uint32_t i;
+    for (i = 0; i < MQC_NUMCTXS; i++) {
+        mqc->ctxs[i] = 0;
+    }
+	mqc_setstate(mqc, T1_CTXNO_UNI, 0, 46);
+	mqc_setstate(mqc, T1_CTXNO_AGG, 0, 3);
+	mqc_setstate(mqc, T1_CTXNO_ZC, 0, 4);
+}
+
+void mqc_setstate(mqc_t *mqc, uint32_t ctxno, uint32_t msb,
+                      int32_t prob)
+{
+    mqc->ctxs[ctxno] = msb + (uint32_t)(prob << 1);
 }
 
 }
